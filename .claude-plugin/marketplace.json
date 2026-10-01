@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "jjailabs",
+  "description": "Claude Code skills from JJAI Labs.",
+  "owner": {
+    "name": "JJAI Labs"
+  },
+  "plugins": [
+    {
+      "name": "jjai",
+      "description": "Evidence-backed definition of done, plus a Stop hook that blocks unsupported DONE claims.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

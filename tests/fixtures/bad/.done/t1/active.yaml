@@ -1,0 +1,9 @@
+active_revision: 1
+active_sha256: "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+approvals:
+  - revision: 1
+    sha256: "2fea2d71232815119870ad16ab339c4fb653b10e134c29485b8dc64ab2939c46"
+    approved_by: "fixture"
+    approved_at: "2026-10-01T00:00:00Z"
+    evidence: "fixture for live test"
+pending: []

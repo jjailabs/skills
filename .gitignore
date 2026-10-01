@@ -1,0 +1,6 @@
+graphify-out/
+HANDOFF-*.md
+dist/
+.done/
+__pycache__/
+!tests/fixtures/*/.done/

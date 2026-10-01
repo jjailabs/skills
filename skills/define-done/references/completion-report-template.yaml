@@ -1,0 +1,39 @@
+# Empty report template. This file is not evidence of any completed task.
+# Save each assessment as a new file in .done/<contract_id>/reports/.
+schema_version: "0.3.0"
+contract_id: null
+contract_revision: null  # Must be active_revision from active.yaml.
+contract_sha256_checked: null  # Hash computed now; must equal active_sha256.
+recap_discrepancies: []  # Where a prompt/summary/log's version of the contract differs from the file.
+candidate_identity: null
+verified_environment: null
+assessment_timestamp: null
+status: BLOCKED
+# RUNNING | DONE | BLOCKED | NEEDS_REVIEW | STOPPED | FAILED
+summary: null
+criteria_results:
+  - criterion_id: C1
+    verdict: UNKNOWN  # PASS | FAIL | UNKNOWN | NOT_APPLICABLE
+    observed_result: null
+    check_actually_performed: false
+    verifier: null
+    evidence_refs: []
+    evidence_matches_candidate: null
+    inapplicability_justification: null
+constraint_results: []
+approval_results: []
+end_to_end_verification: null
+handover_complete: false
+deliverable_refs: []
+partial_work_preserved: []
+unresolved_mandatory_items: []
+limitations: []
+stop_reason: null
+blocked_criteria: []  # Criterion IDs blocked; the task is BLOCKED only if no useful step remains.
+blocked_attempts: []  # Required for BLOCKED. Each: criterion_ids, command_or_action, exact_error_or_observation, unblock_action.
+stop_evidence: null  # Required for STOPPED: cancellation/runtime event, approved limit + counter, or progress history.
+unblock_or_review_request: null
+resume_checkpoint: null
+next_authorized_action: null
+# DONE requires evidence for all mandatory applicable criteria, constraints,
+# approvals and handover. Do not replace null/UNKNOWN with invented results.

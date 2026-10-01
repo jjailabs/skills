@@ -1,0 +1,23 @@
+# Synthetic fixture shaped like references/completion-report-template.yaml.
+schema_version: "0.3.0"
+contract_id: t1
+contract_revision: 1  # Must be active_revision from active.yaml.
+contract_sha256_checked: "2fea2d71232815119870ad16ab339c4fb653b10e134c29485b8dc64ab2939c46"
+recap_discrepancies: []
+candidate_identity: fixture
+verified_environment: local
+assessment_timestamp: 2026-10-01T00:00:00Z
+status: DONE
+# RUNNING | DONE | BLOCKED | NEEDS_REVIEW | STOPPED | FAILED
+summary: Replied ok.
+criteria_results:
+  - criterion_id: C1
+    verdict: PASS  # PASS | FAIL | UNKNOWN | NOT_APPLICABLE
+    observed_result: "reply was ok"
+    check_actually_performed: true
+    evidence_refs:
+      - transcript
+    evidence_matches_candidate: true
+constraint_results: []
+handover_complete: true
+limitations: []

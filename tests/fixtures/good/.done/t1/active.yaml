@@ -1,0 +1,12 @@
+active_revision: 1
+active_sha256: "2fea2d71232815119870ad16ab339c4fb653b10e134c29485b8dc64ab2939c46"
+approvals:            # append-only
+  - revision: 1
+    sha256: "2fea2d71232815119870ad16ab339c4fb653b10e134c29485b8dc64ab2939c46"
+    base_revision: null
+    base_sha256: null
+    approved_by: "fixture"
+    approved_at: 2026-10-01T00:00:00Z
+    evidence: "fixture: synthetic approval for the gate test"
+    compared_against: "original request"
+pending: []           # submitted, unapproved revision numbers; they change nothing

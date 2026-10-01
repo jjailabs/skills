@@ -1,0 +1,40 @@
+# JJAI Define Done contract template, v0.4.0.
+# Save as .done/<contract_id>/contract.r<revision>.yaml (unapproved: proposal.r<N>.yaml).
+# Never edit after submitting for approval; a change is a new revision.
+# Lifecycle and approvals live in active.yaml (SKILL.md section 7), not here.
+# The rules (exits, evidence, change control) live in SKILL.md; do not copy them here.
+# Fill only what carries a decision and delete sections that do not apply.
+# A null marks an open decision, never an approval or a passed check.
+schema_version: "0.4.0"
+contract_id: null
+revision: 1
+supersedes_revision: null
+revision_reason: null
+author: null
+format: standard  # lite | standard | elevated; floor set by delivery level (SKILL.md section 3)
+objective: null
+delivery_level: null  # reviewable_draft | tested_local | staging_verified | production_verified
+scope:
+  included: []
+  excluded: []
+  protected: []          # resources that must not change
+  external_effects: []   # permitted effects outside the workspace; empty = none
+assumptions: []          # each: {id, statement, source: user | project_rule | proposed}
+readiness: []            # prerequisites, not completion criteria; each: {id, condition, unblock}
+criteria:
+  - id: C1
+    source: null         # quote from the request, a project rule ref, or "proposed"
+    required: true       # a proposed criterion stays optional until approved as required
+    condition: null      # observable result that must be true
+    applies_when: "Always"
+    check: null          # exact command, observation, rubric, or reviewer, with its pass condition
+    evidence: null       # what proves it, tied to the final candidate (commit, hash, environment)
+    verifier: null       # only when independence or a named reviewer matters
+constraints: []          # hard rules; each: {id, condition, check}
+approvals: []            # Elevated only: decisions needing a named owner; each: {decision, owner, exact_payload}
+execution_limits:        # autonomous runs only; binding once the contract is approved
+  max_repair_attempts: null
+  max_wall_time: null
+  no_progress_rule: null
+end_to_end_criteria: []  # criterion IDs that prove the parts work together
+handover: []             # artifacts and notes to deliver

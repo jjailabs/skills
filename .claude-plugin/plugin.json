@@ -1,0 +1,11 @@
+{
+  "name": "jjai",
+  "description": "Evidence-backed definition of done, plus a Stop hook that blocks unsupported DONE claims.",
+  "author": {
+    "name": "JJAI Labs",
+    "url": "https://jjailabs.io"
+  },
+  "homepage": "https://github.com/jjailabs/skills",
+  "repository": "https://github.com/jjailabs/skills",
+  "license": "MIT"
+}

@@ -1,0 +1,16 @@
+{
+  "description": "Blocks Stop when a define-done report claims DONE but the contract does not check out.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v python3 >/dev/null 2>&1 && exec python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/done-gate.py\"; command -v python >/dev/null 2>&1 && exec python \"${CLAUDE_PLUGIN_ROOT}/hooks/done-gate.py\"; echo \"define-done gate: Python 3 not found - gate is OFF\" >&2; exit 1",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
