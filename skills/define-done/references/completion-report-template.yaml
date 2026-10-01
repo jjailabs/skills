@@ -1,5 +1,7 @@
 # Empty report template. This file is not evidence of any completed task.
 # Save each assessment as a new file in .done/<contract_id>/reports/.
+# Write block-style YAML: one key per line, list items as `- ` lines. Never flow
+# style ({...} or [a, b]); an empty list may stay [].
 schema_version: "0.3.0"
 contract_id: null
 contract_revision: null  # Must be active_revision from active.yaml.
@@ -7,7 +9,7 @@ contract_sha256_checked: null  # Hash computed now; must equal active_sha256.
 recap_discrepancies: []  # Where a prompt/summary/log's version of the contract differs from the file.
 candidate_identity: null
 verified_environment: null
-assessment_timestamp: null
+assessment_timestamp: null  # Required. Current UTC time, ISO 8601, e.g. 2026-10-01T06:30:00Z.
 status: BLOCKED
 # RUNNING | DONE | BLOCKED | NEEDS_REVIEW | STOPPED | FAILED
 summary: null

@@ -11,7 +11,7 @@ description: >-
   trivial edits that do not benefit from an explicit completion contract.
 metadata:
   author: JJAI Labs
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Define Done
@@ -252,8 +252,16 @@ a loop, sub-agent, or later session will act on. In long sessions and loops, old
 context gets summarized or dropped, and a summarized contract is a quietly
 rewritten one. A Lite contract for a one-shot interactive task has no such risk:
 keep it inline in the response and write no files. Files go in `.done/<task-id>/`
-at the project root; if the root is not writable, use
-`~/.claude/done/<project>/<task-id>/` and say so.
+at the project root (the folder that holds `.git`). There is no other location: if
+the root is not writable, report BLOCKED and say why.
+
+Write every file under `.done/` as block-style YAML: one key per line, and each
+list item on its own line starting with `- `. Never use flow style (`{...}` or
+`[a, b]`); an empty list may stay `[]`. Keep every string on one line (no `|`,
+`>`, or quoted text that wraps), put each value on its key's line and never
+continue it on the next line, never repeat a key, and use only ASCII spaces as whitespace (no tabs):
+the Stop hook cannot parse such a report. Wrap a value in single quotes (write `'` inside as `''`)
+if it starts with a symbol or contains `: `, ` #`, or a backslash.
 
 - `contract.r<N>.yaml`: one file per revision. Once a revision is submitted for
   approval, never edit it; any change becomes a new revision number. Approval then
@@ -299,7 +307,13 @@ file is missing, any hash disagrees, or the approval entry is missing or lacks
 evidence, issue no verdict: report NEEDS_REVIEW with the mismatch. If version control holds the approved text, show the diff; otherwise do
 not guess at what changed. Never verify from memory, a recap, or a description in the prompt; if a
 recap differs from the file, the file wins, and report the difference. Write each
-VERIFY result as a new file in `.done/<task-id>/reports/`.
+VERIFY result as a new file in `.done/<task-id>/reports/`. Set its
+`assessment_timestamp` to the current time in UTC ISO 8601, in exactly this form:
+`2026-10-01T06:30:00Z` (any other form makes the report unparseable). The report with the latest `assessment_timestamp` is the
+current one, so never omit it or copy it from an older report. If a Stop hook
+blocks your DONE claim and you cannot satisfy the contract, do not retry the stop:
+write a new report with status NEEDS_REVIEW (or BLOCKED, STOPPED, or FAILED) that
+explains the mismatch.
 
 Only an inline Lite contract, still visible in the conversation together with its
 approval, may be verified without files. If a contract that needed files is

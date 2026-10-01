@@ -1,6 +1,8 @@
 # JJAI Define Done contract template, v0.4.0.
 # Save as .done/<contract_id>/contract.r<revision>.yaml (unapproved: proposal.r<N>.yaml).
 # Never edit after submitting for approval; a change is a new revision.
+# Write block-style YAML: one key per line, list items as `- ` lines. Never flow
+# style ({...} or [a, b]); an empty list may stay [].
 # Lifecycle and approvals live in active.yaml (SKILL.md section 7), not here.
 # The rules (exits, evidence, change control) live in SKILL.md; do not copy them here.
 # Fill only what carries a decision and delete sections that do not apply.
