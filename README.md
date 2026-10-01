@@ -37,7 +37,7 @@ A correct block also shows "Stop hook error occurred". That is normal. Press ctr
 
 ## Trust
 
-The hook runs on every stop with your user permissions. Read `hooks/done-gate.py` before you install. It is about 140 lines of standard-library Python and makes no network calls. `python3 tests/test_done_gate.py` runs it against sample fixtures.
+The hook runs on every stop with your user permissions. Read `hooks/done-gate.py` before you install. It is about 150 lines of standard-library Python and makes no network calls. `python3 tests/test_done_gate.py` runs it against sample fixtures.
 
 ## Known limits
 
