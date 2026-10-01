@@ -97,8 +97,21 @@ for task in sorted(os.listdir(done)):
     if not files:
         continue
     # ponytail: skill doesn't fix report names; mtime is the proxy. Upgrade = a timestamp field in the report once the skill defines one.
-    report = load_yaml(max(files, key=lambda f: os.stat(f).st_mtime_ns))
-    if not isinstance(report, dict) or report.get("status") != "DONE":  # only DONE claims are gated
+    newest = max(files, key=lambda f: os.stat(f).st_mtime_ns)
+    report = load_yaml(newest)
+    if not isinstance(report, dict) or report.get("status") is None:
+        # reader can't see a status (e.g. flow style): fail closed if the text claims DONE
+        try:
+            with open(newest, encoding="utf-8", errors="replace") as f:
+                claims_done = re.search(r"\bDONE\b", f.read())
+        except OSError:
+            claims_done = None
+        if claims_done:
+            problems.append(f"{task}: reports/{os.path.basename(newest)} mentions DONE but the gate cannot read its "
+                            "status; rewrite it in block-style YAML, one `key: value` per line, as in the skill's "
+                            "references/completion-report-template.yaml")
+        continue
+    if report.get("status") != "DONE":  # only DONE claims are gated
         continue
 
     active = load_yaml(os.path.join(d, "active.yaml"))

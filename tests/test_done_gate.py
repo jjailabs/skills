@@ -24,26 +24,33 @@ def run(cmd, payload, env_extra):
 
 
 bad = os.path.join(FIX, "bad")
-cases = [  # name, payload, extra env, expect block?
-    ("BAD", {"cwd": bad}, {}, True),
-    ("GOOD", {"cwd": os.path.join(FIX, "good")}, {}, False),
-    ("NONE", {"cwd": FIX}, {}, False),  # fixtures/ itself has no .done/
-    ("KILL_SWITCH", {"cwd": bad}, {"CLAUDE_DONE_GATE": "0"}, False),
-    ("STOP_HOOK_ACTIVE", {"cwd": bad, "stop_hook_active": True}, {}, False),
+cases = [  # name, payload, extra env, expected text in block reason (None = stop passes)
+    ("BAD", {"cwd": bad}, {}, "t1: contract.r1.yaml hashes to 2fea2d712328 but active_sha256 is 2d711642b726"),
+    ("GOOD", {"cwd": os.path.join(FIX, "good")}, {}, None),
+    ("NONE", {"cwd": FIX}, {}, None),  # fixtures/ itself has no .done/
+    ("KILL_SWITCH", {"cwd": bad}, {"CLAUDE_DONE_GATE": "0"}, None),
+    ("STOP_HOOK_ACTIVE", {"cwd": bad, "stop_hook_active": True}, {}, None),
+    ("FLOW", {"cwd": os.path.join(FIX, "flow")}, {}, "rewrite it in block-style YAML"),
 ]
 ruby = shutil.which("ruby")
-for name, payload, env_extra, blocks in cases:
+for name, payload, env_extra, reason in cases:
+    blocks = reason is not None
     out, code = run([sys.executable, PY_HOOK], payload, env_extra)
     assert code == 0, (name, code, out)
     if blocks:
         res = json.loads(out)
         assert res["decision"] == "block", (name, out)
-        assert "t1: contract.r1.yaml hashes to 2fea2d712328 but active_sha256 is 2d711642b726" in res["reason"], out
+        assert reason in res["reason"], out
     else:
         assert out == "", (name, out)
     note = "no ruby, parity skipped"
     if ruby:
-        assert run([ruby, RB_HOOK], payload, env_extra) == (out, code), (name, "differs from Ruby hook")
-        note = "matches Ruby hook"
+        rb = run([ruby, RB_HOOK], payload, env_extra)
+        if name == "FLOW":  # Ruby parses flow style itself, so only the decision must match
+            assert rb[1] == 0 and json.loads(rb[0])["decision"] == "block", (name, rb)
+            note = "Ruby hook also blocks"
+        else:
+            assert rb == (out, code), (name, "differs from Ruby hook")
+            note = "matches Ruby hook"
     print(f"ok {name}: {'block' if blocks else 'pass'}, {note}")
 print(f"all {len(cases)} passed")

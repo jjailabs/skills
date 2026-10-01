@@ -43,7 +43,7 @@ The hook runs on every stop with your user permissions. Read `hooks/done-gate.py
 
 - Only `<project>/.done/` is checked. The skill's fallback location, `~/.claude/done/<project>/`, is not gated.
 - "Newest report" means the file with the newest modification time. Touching or copying an old report changes which one is checked.
-- The hook reads YAML with a small built-in reader, not a full parser. It handles the block style the skill's templates use. If approvals are written in flow style (`[{...}]`), the gate blocks. If a whole report is written in flow style, the gate does not read it and lets the stop through.
+- The hook reads YAML with a small built-in reader, not a full parser. It handles the block style the skill's templates use. If approvals are written in flow style (`[{...}]`), the gate blocks. If a whole report is written in flow style and claims DONE, the gate blocks and asks Claude to rewrite the report in block style.
 
 ## License
 
@@ -51,4 +51,4 @@ MIT. See [LICENSE](LICENSE).
 
 ---
 
-Built by JJAI Labs — jjailabs.io. First shown in Chase AI+.
+Built by JJAI Labs — [jjailabs.io](https://jjailabs.io). First shown in [Chase AI+](https://www.skool.com/chase-ai).
