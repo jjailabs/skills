@@ -1,4 +1,4 @@
-# define-done for Claude Code
+# define-done for Claude Code and Codex
 
 You hand Claude a task. Later it tells you the task is done. Sometimes that is true. Sometimes the tests never ran, the feature works only on the easy path, or the goal shrank along the way until it fit what got built. You hear "done" in both cases, and you can't tell which one you got without doing the checking yourself.
 
@@ -8,7 +8,7 @@ That written definition is the contract. You approve it, or an agent that neithe
 
 Once approved, the contract is fixed. Its hash is recorded, and any change becomes a new revision that needs its own approval. The finish line stays where you put it.
 
-In Claude Code, a gate backs this up. Each time Claude stops, a Stop hook reads the latest report. If the report says DONE but does not point to the approved contract, unchanged, Claude can't stop on that claim. It has to fix the mismatch, or write a new report that says what went wrong.
+In Claude Code and Codex CLI, a gate backs this up. Each time Claude stops, a Stop hook reads the latest report. If the report says DONE but does not point to the approved contract, unchanged, Claude can't stop on that claim. It has to fix the mismatch, or write a new report that says what went wrong.
 
 The skill only defines done. Doing the work is a separate ask.
 
@@ -36,18 +36,27 @@ claude plugin update jjai@jjailabs
 
 Then restart Claude Code.
 
+**In Codex CLI:**
+
+```
+codex plugin marketplace add jjailabs/skills
+codex plugin add jjai@jjailabs
+```
+
+Then start Codex, run `/hooks`, and trust the jjai Stop hook. Until you trust it, Codex skips the gate without a word. Run the skill as `$define-done`.
+
 ## 💻 claude.ai and Claude Desktop
 
 Download `define-done.zip` from the Releases page and upload it as a skill. You get the skill only. The gate is a Claude Code hook, so it does not run there.
 
 ## Requirements
 
-- Claude Code
+- Claude Code, or Codex CLI
 - Python 3 for the gate (standard library only). Without Python, you will see "Stop hook error occurred" each time Claude stops, and the gate does nothing.
 
 ## How the gate works
 
-Each time Claude stops, the hook looks for `.done/` folders. It starts in Claude's working folder and moves up one folder at a time, to the folder that holds `.git`, checking every `.done/` on the way. It never checks a folder above your home folder, and it checks your home folder only when Claude starts there.
+The gate works the same way in Codex. Each time Claude stops, the hook looks for `.done/` folders. It starts in Claude's working folder and moves up one folder at a time, to the folder that holds `.git`, checking every `.done/` on the way. It never checks a folder above your home folder, and it checks your home folder only when Claude starts there.
 
 In each `.done/<task>/reports/`, the newest report is the one with the latest `assessment_timestamp`, such as `2026-10-01T06:30:00Z`. A report with no timestamp, or with `null` (for example, from v0.7), is dated by its file time. Any other value must take this exact form: date, `T`, time with seconds, then `Z` or an offset such as `+02:00`. An optional `.123` or `.123456` may follow the seconds. A value in any other form, such as `2026-10-01`, makes the report unparseable. If two reports have the same time, the one written last counts. If they still tie, the hook checks the DONE report.
 
@@ -69,19 +78,20 @@ The block reason tells Claude what is wrong. Every other stop goes through.
 
 These checks cover the contract files and the approval record. They do not test the work. The report, and the person who reads it, decide whether the work meets the contract.
 
-The hook checks again when Claude tries to stop right after a block, so retrying does not get past it. A block ends in one of three ways:
+The hook checks again when Claude tries to stop right after a block, so retrying does not get past it. A block ends in one of four ways:
 
 - Claude writes a new report with status NEEDS_REVIEW (or BLOCKED, STOPPED, or FAILED) that explains the problem. That newer report replaces the DONE claim. It does not end a block caused by an unparseable report or a report dated in the future. Fix that report instead.
 - You interrupt Claude.
 - You turn the gate off.
+- The gate blocks 5 times in a row in one session. On the next blocked stop, it stops the agent instead. The DONE claim is NOT accepted, and the stop reason says so. (Codex has no limit of its own on Stop blocks, so without this it could loop until you interrupt it.) `codex exec` shows this as `hook: Stop Stopped`.
 
-To turn the gate off for one session, set `CLAUDE_DONE_GATE=0`. To turn it off for good, run `claude plugin disable jjai@jjailabs`.
+To turn the gate off for one session, set `DONE_GATE=0` (`CLAUDE_DONE_GATE=0` also works). To turn it off for good, run `claude plugin disable jjai@jjailabs`, or in Codex, `codex plugin remove jjai@jjailabs`.
 
-A correct block also shows "Stop hook error occurred". That is normal. Press ctrl+o to see the reason.
+In Claude Code, a correct block also shows "Stop hook error occurred". That is normal. Press ctrl+o to see the reason.
 
 ## Trust
 
-The hook runs on every stop with your user permissions. Read `hooks/done-gate.py` before you install. It is about 285 lines of standard-library Python and makes no network calls. `python3 tests/test_done_gate.py` runs it against sample fixtures. `python3 tests/test_yaml_differential.py` compares its YAML reader with Ruby's YAML parser.
+The hook runs on every stop with your user permissions. Read `hooks/done-gate.py` before you install. It is about 325 lines of standard-library Python and makes no network calls. `python3 tests/test_done_gate.py` runs it against sample fixtures. `python3 tests/test_yaml_differential.py` compares its YAML reader with Ruby's YAML parser.
 
 ## License
 

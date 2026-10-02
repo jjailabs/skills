@@ -6,15 +6,16 @@
 # cannot be parsed or its status is not one plain recognized state, any report is dated
 # in the future, or reading a .done fails, a report is not a regular file, or the check runs
 # past 8 s (fail closed). Every other stop passes. It checks again on a stop that follows its own
-# block (stop_hook_active); a newer non-DONE report ends the block.
+# block (stop_hook_active); a newer non-DONE report ends the block. After 5 blocks in a row in one
+# session, the next blocked stop halts the agent instead (continue: false), without accepting the claim.
 # Checks every .done walking up from cwd, stopping at the git root; never checks a
 # folder above $HOME, and checks $HOME itself only when it is cwd.
 # Newest = latest assessment_timestamp (a report without one is dated by its file
 # mtime), then latest mtime, then a DONE report, then file name.
 #
 # Reversibility:
-#   CLAUDE_DONE_GATE=0  -> disable instantly, no settings edit
-#   /plugin disable jjai@jjailabs -> permanent off
+#   DONE_GATE=0 (or CLAUDE_DONE_GATE=0)  -> disable instantly, no settings edit
+#   disable the jjai plugin in Claude Code or Codex -> permanent off
 import hashlib
 import json
 import os
@@ -22,9 +23,10 @@ import re
 import signal
 import stat
 import sys
+import tempfile
 from datetime import datetime, timezone
 
-if os.environ.get("CLAUDE_DONE_GATE") == "0":
+if "0" in (os.environ.get("DONE_GATE"), os.environ.get("CLAUDE_DONE_GATE")):
     sys.exit(0)
 
 # ponytail: strict allow-list reader, not a YAML parser (upgrade = PyYAML safe_load). After line breaks
@@ -55,6 +57,7 @@ SEMANTIC = ("status", "assessment_timestamp", "contract_revision", "contract_sha
 SCALAR = SEMANTIC + ("approved_by", "evidence")  # at the top level or in an approvals item: one-line values only
 STATES = ("RUNNING", "DONE", "BLOCKED", "NEEDS_REVIEW", "STOPPED", "FAILED")  # SKILL.md section 6
 SKEW = 300  # ponytail: 5 min is the clock-skew allowance before a timestamp counts as future
+LIMIT = 5  # blocks in a row per session before the gate halts instead (Codex has no loop cap of its own)
 
 
 def scalar(v):
@@ -163,7 +166,7 @@ except ValueError:
 if not isinstance(data, dict):
     sys.exit(0)
 # No stop_hook_active exit: a retried stop is checked again. Ways out: a newer non-DONE
-# report, the human interrupting, or CLAUDE_DONE_GATE=0.
+# report, the human interrupting, DONE_GATE=0, or the halt after LIMIT blocks in a row.
 
 here = os.path.realpath(data.get("cwd") or os.getcwd())
 home = os.path.realpath(os.path.expanduser("~")) + os.sep
@@ -184,15 +187,55 @@ while True:  # every .done from cwd up to the .git dir; $HOME only when it is cw
 
 
 FALLBACK = (b'{"decision":"block","reason":"define-done gate: internal error while reporting a problem; '
-            b'check .done/ or set CLAUDE_DONE_GATE=0"}')
+            b'check .done/ or set DONE_GATE=0"}')
+
+
+def tally():  # (folder fd, file name) whose file size counts this session's blocks in a row, or None
+    sid = data.get("session_id")
+    if not isinstance(sid, str) or not sid:
+        return None
+    uid = getattr(os, "getuid", lambda: None)()
+    folder = os.path.join(tempfile.gettempdir(), f"define-done-gate-{uid}")
+    os.makedirs(folder, 0o700, exist_ok=True)
+    # ponytail: the folder is used only through this fd, never through a link or someone else's folder; with no
+    # O_DIRECTORY (Windows) this raises, so there is no count and every stop blocks
+    dfd = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    st = os.fstat(dfd)
+    if not stat.S_ISDIR(st.st_mode) or uid is not None and st.st_uid != uid:
+        return None
+    return dfd, hashlib.sha256(sid.encode("utf-8", "surrogatepass")).hexdigest()
+
+
+def halt(reason):  # counts this block; after LIMIT in a row, the output that halts the agent instead
+    try:  # no count (no session_id, or it cannot be stored): None, so every stop blocks
+        count = tally()
+        if not count:
+            return None
+        dfd, name = count
+        # never follow a link or wait on a FIFO (SIGALRM is off here)
+        fd = os.open(name, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NONBLOCK | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode):
+                return None
+            if st.st_size < LIMIT:
+                os.write(fd, b".")
+                return None
+        finally:
+            os.close(fd)
+        os.remove(name, dir_fd=dfd)  # reset first: if that fails, this stays a block
+        return {"continue": False, "stopReason": f"define-done gate stopped the agent after {LIMIT} blocked stops "
+                f"in a row. The DONE claim is NOT accepted. Last block: {reason}"}
+    except Exception:
+        return None
 
 
 def block(reason):  # a .done exists, so nothing from here on may let the stop through
     if hasattr(signal, "SIGALRM"):
         signal.signal(signal.SIGALRM, signal.SIG_IGN)  # no timeout block in the middle of this one
     try:  # a non-UTF-8 file name is a lone surrogate here: escape it, and write pure ASCII
-        out = json.dumps({"decision": "block", "reason": reason.encode("utf-8", "backslashreplace").decode("utf-8")},
-                         separators=(",", ":")).encode("ascii")
+        reason = reason.encode("utf-8", "backslashreplace").decode("utf-8")
+        out = json.dumps(halt(reason) or {"decision": "block", "reason": reason}, separators=(",", ":")).encode("ascii")
     except Exception:
         out = FALLBACK
     sys.stdout.buffer.write(out + b"\n")
@@ -260,7 +303,7 @@ def check(d, problems):  # one .done/<task> folder; appends what is wrong
 
 
 def expire(signum, frame):  # blocks from wherever the check is, even an except clause or the final report
-    block(f"define-done gate timed out after 8 s in {where}. Fix the files or set CLAUDE_DONE_GATE=0 to bypass.")
+    block(f"define-done gate timed out after 8 s in {where}. Fix the files or set DONE_GATE=0 to bypass.")
 
 
 now = datetime.now(timezone.utc).timestamp()
@@ -276,10 +319,15 @@ try:  # a .done exists, so an error blocks instead of letting the stop through
             check(where, problems)
 except Exception as e:
     block(f"define-done gate error in {where}: {type(e).__name__}: {e}. "
-          "Fix the files or set CLAUDE_DONE_GATE=0 to bypass.")
+          "Fix the files or set DONE_GATE=0 to bypass.")
 if problems:
     block(f"define-done gate: {'; '.join(problems)}. Fix the cause. If you cannot support the DONE claim, do not "
           "retry the stop: write a new report in that task's reports/ folder with the current UTC "
           "assessment_timestamp and status NEEDS_REVIEW (or BLOCKED, STOPPED, or FAILED) that explains the mismatch. "
           "That newer report replaces the DONE claim and ends the block. "
           "Do not edit the contract or active.yaml to pass this gate.")
+try:  # the stop passes: a later block starts a new count
+    dfd, name = tally()
+    os.remove(name, dir_fd=dfd)
+except Exception:  # no count to reset (no session_id, no store, or Windows)
+    pass

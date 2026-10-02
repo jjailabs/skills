@@ -11,7 +11,7 @@ description: >-
   trivial edits that do not benefit from an explicit completion contract.
 metadata:
   author: JJAI Labs
-  version: "0.8.0"
+  version: "0.9.0"
 ---
 
 # Define Done

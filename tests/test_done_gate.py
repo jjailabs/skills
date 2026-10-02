@@ -4,6 +4,7 @@
 # If `ruby` is on PATH, also runs the original Ruby hook (fixtures/done-gate.rb):
 # identical stdout + exit code on the passing cases it shares, same decision on BAD and FLOW.
 # Run: python3 tests/test_done_gate.py
+import hashlib
 import json
 import os
 import shutil
@@ -16,10 +17,13 @@ FIX = os.path.join(HERE, "fixtures")
 PY_HOOK = os.path.join(HERE, "..", "hooks", "done-gate.py")
 RB_HOOK = os.path.join(FIX, "done-gate.rb")
 TMP = tempfile.TemporaryDirectory()  # removed at exit
+GUARD_TMP = os.path.join(TMP.name, "tmp")
+os.makedirs(GUARD_TMP)
 
 
 def run(cmd, payload, env_extra, lock=None):  # lock: a path set to chmod 000 for this run only
-    env = {k: v for k, v in os.environ.items() if k != "CLAUDE_DONE_GATE"}
+    env = {k: v for k, v in os.environ.items() if k not in ("CLAUDE_DONE_GATE", "DONE_GATE")}
+    env["TMPDIR"] = GUARD_TMP  # the loop-guard counts live here, not in the real temp folder
     env.update(env_extra)
     if lock:
         mode = os.stat(lock).st_mode
@@ -342,6 +346,7 @@ cases = [  # name, payload, extra env, expected text in block reason (None = sto
     ("GOOD", {"cwd": good}, {}, None),
     ("NONE", {"cwd": none}, {}, None),
     ("KILL_SWITCH", {"cwd": bad}, {"CLAUDE_DONE_GATE": "0"}, None),
+    ("KILL_SWITCH_DONE_GATE", {"cwd": bad}, {"DONE_GATE": "0"}, None),
     ("STOP_HOOK_ACTIVE", {"cwd": bad, "stop_hook_active": True}, {}, BAD_REASON),
     ("STOP_HOOK_ACTIVE_RESOLVED", {"cwd": resolved, "stop_hook_active": True}, {}, None),
     ("FLOW", {"cwd": flow}, {}, "rewrite it in block-style YAML"),
@@ -452,6 +457,70 @@ for name, payload, env_extra, reason in cases:
         print(f"FAIL {name}: {e}")
         continue
     print(f"ok {name}: {'block' if blocks else 'pass'}, {note}")
+
+# Loop guard: stops in one session, each "block", "halt" (continue false, claim not accepted) or "pass".
+def stops(payloads, env_extra):
+    got = []
+    for payload in payloads:
+        out, code = run([sys.executable, PY_HOOK], payload, env_extra)
+        assert code == 0, (code, out)
+        res = json.loads(out) if out else None
+        if res and res.get("continue") is False:
+            assert "decision" not in res and "NOT accepted" in res["stopReason"], out
+            assert BAD_REASON in res["stopReason"], out
+        elif res:
+            assert res["decision"] == "block", out
+        got.append("pass" if res is None else "halt" if res.get("continue") is False else "block")
+    return got
+
+
+def tally(sid):  # where the hook counts blocks for this session
+    return os.path.join(GUARD_TMP, f"define-done-gate-{getattr(os, 'getuid', lambda: 0)()}",
+                        hashlib.sha256(sid.encode()).hexdigest())
+
+
+B, G = (lambda s: {"cwd": bad, "session_id": s}), (lambda s: {"cwd": good, "session_id": s})
+no_store = os.path.join(TMP.name, "no_store")  # the count folder's name is taken by a file
+os.makedirs(no_store)
+open(os.path.join(no_store, os.path.basename(os.path.dirname(tally("x")))), "w").close()
+os.makedirs(os.path.dirname(tally("x")), exist_ok=True)
+target = os.path.join(TMP.name, "link_target")
+with open(target, "w") as f:
+    f.write("keep")
+os.symlink(target, tally("linked"))
+guard = [  # name, stops, extra env, expected results
+    ("GUARD_HALTS_AFTER_5", [B("s1")] * 7, {}, ["block"] * 5 + ["halt", "block"]),
+    ("GUARD_PASS_RESETS", [B("s2")] * 3 + [G("s2")] + [B("s2")] * 6, {}, ["block"] * 3 + ["pass"] + ["block"] * 5 + ["halt"]),
+    ("GUARD_SESSIONS_APART", [B("a")] * 5 + [B("b"), B("a")], {}, ["block"] * 6 + ["halt"]),
+    ("GUARD_NO_SESSION", [{"cwd": bad}] * 7, {}, ["block"] * 7),
+    ("GUARD_STORE_UNWRITABLE", [B("s3")] * 7, {"TMPDIR": no_store}, ["block"] * 7),
+    ("GUARD_TALLY_SYMLINK", [B("linked")] * 7, {}, ["block"] * 7),
+]
+# The count folder is a symlink to another folder that holds a full count for this session: never used.
+linked_tmp, elsewhere = os.path.join(TMP.name, "linked_tmp"), os.path.join(TMP.name, "elsewhere")
+os.makedirs(linked_tmp)
+os.makedirs(elsewhere)
+planted = os.path.join(elsewhere, os.path.basename(tally("planted")))
+with open(planted, "w") as f:
+    f.write(".....")
+os.symlink(elsewhere, os.path.join(linked_tmp, os.path.basename(os.path.dirname(tally("x")))))
+guard.append(("GUARD_FOLDER_SYMLINK", [B("planted")] * 7, {"TMPDIR": linked_tmp}, ["block"] * 7))
+if hasattr(os, "mkfifo"):
+    os.mkfifo(tally("fifo"))
+    guard.append(("GUARD_TALLY_FIFO", [B("fifo")] * 7, {}, ["block"] * 7))
+for name, payloads, env_extra, want in guard:
+    try:
+        got = stops(payloads, env_extra)
+        assert got == want, (got, want)
+        assert read(target) == "keep", "wrote through the symlink"
+        assert read(planted) == "....." and os.listdir(elsewhere) == [os.path.basename(planted)], \
+            "used the folder behind the symlink"
+    except (AssertionError, ValueError, subprocess.TimeoutExpired) as e:
+        failed.append(name)
+        print(f"FAIL {name}: {e}")
+        continue
+    print(f"ok {name}: {' '.join(got)}")
+cases += guard
 if failed:
     sys.exit(f"{len(failed)} of {len(cases)} failed: {', '.join(failed)}")
 print(f"all {len(cases)} passed")
